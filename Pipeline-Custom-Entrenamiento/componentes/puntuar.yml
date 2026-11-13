@@ -1,0 +1,17 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: puntuar_modelo
+display_name: Puntuar Modelo
+description: Agrega la columna "Scored Labels" con las predicciones del modelo (equivalente a Score Model).
+version: "1"
+inputs:
+  modelo: {type: mlflow_model}
+  datos: {type: mltable}
+  columna_objetivo: {type: string, default: charges}
+outputs:
+  datos_puntuados: {type: mltable}
+code: ../src
+environment: azureml:env-pipeline-seguros:1
+command: >-
+  python puntuar.py --modelo ${{inputs.modelo}} --datos ${{inputs.datos}}
+  --columna_objetivo ${{inputs.columna_objetivo}} --datos_puntuados ${{outputs.datos_puntuados}}

@@ -1,0 +1,41 @@
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: pipeline-custom-entrenamiento-seguros
+experiment_name: pipeline-custom-entrenamiento
+
+settings:
+  default_compute: azureml:cluster-plan-de-salud
+
+inputs:
+  datos:
+    type: mltable
+    path: azureml:plan-de-salud-mltable:2
+
+jobs:
+  preprocesar:
+    component: azureml:preprocesador_seguros:4
+    inputs:
+      datos_entrada: ${{parent.inputs.datos}}
+      metodo_normalizacion: zscore
+
+  dividir:
+    component: azureml:dividir_datos:1
+    inputs:
+      datos: ${{parent.jobs.preprocesar.outputs.datos_salida}}
+      fraccion_entrenamiento: 0.7
+
+  entrenar:
+    component: azureml:entrenar_regresor:1
+    inputs:
+      datos_entrenamiento: ${{parent.jobs.dividir.outputs.datos_entrenamiento}}
+
+  puntuar:
+    component: azureml:puntuar_modelo:1
+    inputs:
+      modelo: ${{parent.jobs.entrenar.outputs.modelo}}
+      datos: ${{parent.jobs.dividir.outputs.datos_prueba}}
+
+  evaluar:
+    component: azureml:evaluar_modelo:1
+    inputs:
+      datos_puntuados: ${{parent.jobs.puntuar.outputs.datos_puntuados}}

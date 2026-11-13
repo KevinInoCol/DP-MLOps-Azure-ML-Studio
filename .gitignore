@@ -1,0 +1,19 @@
+# Secretos: nunca subir el .env (lleva la key del endpoint)
+.env
+.env.*
+!.env.example
+
+# Config local
+.claude/settings.local.json
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Artefactos descargados de Azure ML
+deployment_files/
+salida/
+outputs/

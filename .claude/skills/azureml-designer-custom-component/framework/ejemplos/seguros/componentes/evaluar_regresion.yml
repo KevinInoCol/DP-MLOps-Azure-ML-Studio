@@ -1,0 +1,26 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: evaluar_regresion
+display_name: Evaluar Regresión (Evaluate Model)
+description: MAE, RMSE, RAE, RSE y R2. Equivale a Evaluate Model.
+version: "1"
+
+inputs:
+  datos_puntuados:
+    type: mltable
+  columna_objetivo:
+    type: string
+    default: charges
+
+outputs:
+  resultados:
+    type: uri_folder
+
+code: ../src
+environment: azureml:env-designer-custom@latest
+
+command: >-
+  python evaluar_regresion.py
+  --datos_puntuados ${{inputs.datos_puntuados}}
+  --columna_objetivo ${{inputs.columna_objetivo}}
+  --resultados ${{outputs.resultados}}

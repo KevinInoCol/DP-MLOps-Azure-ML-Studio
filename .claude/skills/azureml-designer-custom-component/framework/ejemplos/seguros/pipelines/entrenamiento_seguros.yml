@@ -1,0 +1,40 @@
+# Pipeline de entrenamiento de seguros: equivalente Custom del pipeline Classic
+# plan-de-salud → Edit Metadata → Split Data → Train Model (Boosted Tree) → Score Model → Evaluate Model
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: entrenamiento-seguros-framework
+experiment_name: framework-designer-custom
+
+inputs:
+  datos:
+    type: mltable
+    path: azureml:plan-de-salud-mltable@latest
+
+jobs:
+  preprocesar:
+    component: azureml:preprocesar_seguros@latest
+    inputs:
+      datos: ${{parent.inputs.datos}}
+      metodo_normalizacion: zscore
+
+  dividir:
+    component: azureml:dividir_datos@latest
+    inputs:
+      datos: ${{parent.jobs.preprocesar.outputs.datos_procesados}}
+      fraccion_entrenamiento: 0.7
+
+  entrenar:
+    component: azureml:entrenar_regresor@latest
+    inputs:
+      datos_entrenamiento: ${{parent.jobs.dividir.outputs.datos_entrenamiento}}
+
+  puntuar:
+    component: azureml:puntuar_modelo@latest
+    inputs:
+      modelo: ${{parent.jobs.entrenar.outputs.modelo}}
+      datos: ${{parent.jobs.dividir.outputs.datos_prueba}}
+
+  evaluar:
+    component: azureml:evaluar_regresion@latest
+    inputs:
+      datos_puntuados: ${{parent.jobs.puntuar.outputs.datos_puntuados}}

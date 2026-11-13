@@ -1,0 +1,38 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: entrenar_regresor
+display_name: Entrenar Regresor (Train Model)
+description: GradientBoostingRegressor en formato MLflow. Equivale a Boosted Decision Tree Regression + Train Model.
+version: "1"
+
+inputs:
+  datos_entrenamiento:
+    type: mltable
+  columna_objetivo:
+    type: string
+    default: charges
+  n_estimators:
+    type: integer
+    default: 100
+  learning_rate:
+    type: number
+    default: 0.1
+  max_depth:
+    type: integer
+    default: 3
+
+outputs:
+  modelo:
+    type: mlflow_model
+
+code: ../src
+environment: azureml:env-designer-custom@latest
+
+command: >-
+  python entrenar_regresor.py
+  --datos_entrenamiento ${{inputs.datos_entrenamiento}}
+  --columna_objetivo ${{inputs.columna_objetivo}}
+  --n_estimators ${{inputs.n_estimators}}
+  --learning_rate ${{inputs.learning_rate}}
+  --max_depth ${{inputs.max_depth}}
+  --modelo ${{outputs.modelo}}

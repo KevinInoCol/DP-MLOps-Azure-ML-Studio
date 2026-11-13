@@ -1,0 +1,33 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: dividir_datos
+display_name: Dividir Datos (Split Data)
+description: Divide en entrenamiento y prueba. Equivale a Split Data.
+version: "1"
+
+inputs:
+  datos:
+    type: mltable
+  fraccion_entrenamiento:
+    type: number
+    default: 0.7
+  semilla:
+    type: integer
+    default: 42
+
+outputs:
+  datos_entrenamiento:
+    type: mltable
+  datos_prueba:
+    type: mltable
+
+code: ../src
+environment: azureml:env-designer-custom@latest
+
+command: >-
+  python dividir_datos.py
+  --datos ${{inputs.datos}}
+  --fraccion_entrenamiento ${{inputs.fraccion_entrenamiento}}
+  --semilla ${{inputs.semilla}}
+  --datos_entrenamiento ${{outputs.datos_entrenamiento}}
+  --datos_prueba ${{outputs.datos_prueba}}

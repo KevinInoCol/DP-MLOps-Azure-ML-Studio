@@ -1,0 +1,16 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: evaluar_modelo
+display_name: Evaluar Modelo (Regresión)
+description: MAE, RMSE, RAE, RSE y R² sobre los datos puntuados (equivalente a Evaluate Model).
+version: "1"
+inputs:
+  datos_puntuados: {type: mltable}
+  columna_objetivo: {type: string, default: charges}
+outputs:
+  resultados: {type: uri_folder}
+code: ../src
+environment: azureml:env-pipeline-seguros:1
+command: >-
+  python evaluar.py --datos_puntuados ${{inputs.datos_puntuados}}
+  --columna_objetivo ${{inputs.columna_objetivo}} --resultados ${{outputs.resultados}}

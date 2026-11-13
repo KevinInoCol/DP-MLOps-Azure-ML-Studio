@@ -1,0 +1,16 @@
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: prueba-componente-preprocesador-seguros
+experiment_name: prueba-componente-custom
+
+settings:
+  default_compute: azureml:cluster-plan-de-salud
+
+jobs:
+  preprocesar:
+    component: azureml:preprocesador_seguros:4
+    inputs:
+      datos_entrada:
+        type: mltable
+        path: azureml:plan-de-salud-mltable:1
+      metodo_normalizacion: zscore

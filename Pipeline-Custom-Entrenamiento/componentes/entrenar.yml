@@ -1,0 +1,22 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: entrenar_regresor
+display_name: Entrenar Regresor (Boosted Trees)
+description: Entrena un GradientBoostingRegressor con el preprocesamiento incluido (recibe datos crudos, listo para desplegar). Equivale a Boosted Decision Tree Regression + Train Model.
+version: "3"
+inputs:
+  datos_entrenamiento: {type: mltable}
+  columna_objetivo: {type: string, default: charges}
+  metodo_normalizacion: {type: string, default: zscore, enum: [zscore, minmax]}
+  n_estimators: {type: integer, default: 100, min: 1}
+  learning_rate: {type: number, default: 0.1}
+  max_depth: {type: integer, default: 3, min: 1}
+outputs:
+  modelo: {type: mlflow_model}
+code: ../src
+environment: azureml:env-pipeline-seguros:1
+command: >-
+  python entrenar.py --datos_entrenamiento ${{inputs.datos_entrenamiento}}
+  --columna_objetivo ${{inputs.columna_objetivo}} --metodo_normalizacion ${{inputs.metodo_normalizacion}} --n_estimators ${{inputs.n_estimators}}
+  --learning_rate ${{inputs.learning_rate}} --max_depth ${{inputs.max_depth}}
+  --modelo ${{outputs.modelo}}

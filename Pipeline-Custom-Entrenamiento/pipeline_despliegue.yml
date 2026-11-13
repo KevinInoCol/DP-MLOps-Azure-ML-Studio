@@ -1,0 +1,37 @@
+# Pipeline para obtener un modelo DESPLEGABLE: sin Preprocesador, porque el
+# preprocesamiento va dentro del modelo (entrenar_regresor v3).
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: entrenamiento-seguros-desplegable
+experiment_name: experimento-entrenamiento-pipeline-custom
+
+settings:
+  default_compute: azureml:cluster-plan-de-salud
+
+inputs:
+  datos:
+    type: mltable
+    path: azureml:plan-de-salud-mltable:2
+
+jobs:
+  dividir:
+    component: azureml:dividir_datos:1
+    inputs:
+      datos: ${{parent.inputs.datos}}
+      fraccion_entrenamiento: 0.7
+
+  entrenar:
+    component: azureml:entrenar_regresor:3
+    inputs:
+      datos_entrenamiento: ${{parent.jobs.dividir.outputs.datos_entrenamiento}}
+
+  puntuar:
+    component: azureml:puntuar_modelo:1
+    inputs:
+      modelo: ${{parent.jobs.entrenar.outputs.modelo}}
+      datos: ${{parent.jobs.dividir.outputs.datos_prueba}}
+
+  evaluar:
+    component: azureml:evaluar_modelo:1
+    inputs:
+      datos_puntuados: ${{parent.jobs.puntuar.outputs.datos_puntuados}}

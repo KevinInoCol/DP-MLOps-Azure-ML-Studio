@@ -1,0 +1,6 @@
+$schema: https://azuremlschemas.azureedge.net/latest/data.schema.json
+name: plan-de-salud-mltable
+version: "1"
+type: mltable
+path: ./insurance_mltable
+description: insurance.csv como MLTable v2 (para componentes Custom del Designer)

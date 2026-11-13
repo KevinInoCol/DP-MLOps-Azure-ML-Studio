@@ -1,0 +1,12 @@
+name: preprocesador-seguros
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - setuptools<81
+  - pip:
+      - pandas==2.2.3
+      - scikit-learn==1.5.2
+      - mltable==1.6.1
+      - azureml-fsspec==1.3.1

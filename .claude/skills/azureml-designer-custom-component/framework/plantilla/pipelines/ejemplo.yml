@@ -1,0 +1,19 @@
+# Plantilla de pipeline. Copia este archivo, cambia los componentes y conecta las salidas.
+#   ${{parent.inputs.X}}               → entrada del pipeline
+#   ${{parent.jobs.PASO.outputs.Y}}    → salida de un paso anterior
+# El cluster se toma de config.env al ejecutar con tools/ejecutar_pipeline.sh
+$schema: https://azuremlschemas.azureedge.net/latest/pipelineJob.schema.json
+type: pipeline
+display_name: mi-pipeline
+experiment_name: mi-experimento
+
+inputs:
+  datos:
+    type: mltable
+    path: azureml:MI-DATASET-MLTABLE@latest   # dataset v2 (ver skill azureml-data-mltable-v2)
+
+jobs:
+  paso_1:
+    component: azureml:MI_COMPONENTE@latest
+    inputs:
+      datos: ${{parent.inputs.datos}}

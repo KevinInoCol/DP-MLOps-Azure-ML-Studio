@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Registrar el Modelo · Datapath</title>
+<meta name="description" content="Programa de MLOps, Sesión 5: del pipeline Custom del Designer de Azure ML al modelo MLflow registrado con nombre, listo para desplegar.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#161719; --panel:#1D1F22; --panel2:#242629; --deep:#101113;
+  --line:#2E3136; --line2:#3A3E44;
+  --ink:#F4F5F6; --body:#C4C8CE; --muted:#878C94;
+  --coral:#FF7A50; --coral-t:rgba(255,122,80,.13);
+  --mint:#6FD3C7; --amber:#F0B85C; --rose:#F0776E;
+  --disp:"Outfit",system-ui,sans-serif;
+  --sans:"Inter",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--deep);overflow:hidden}
+body{color:var(--body);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+::selection{background:var(--coral);color:#141517}
+
+.deck{position:fixed;left:50%;top:50%;width:1280px;height:720px;transform-origin:center}
+.slide{position:absolute;inset:0;background:var(--bg);padding:58px 80px 84px;display:flex;flex-direction:column;
+  opacity:0;visibility:hidden;transition:opacity .45s ease,visibility .45s}
+.slide.on{opacity:1;visibility:visible}
+
+.eyebrow{font-family:var(--mono);font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--coral);margin:0 0 12px}
+h2,h3{font-family:var(--disp);color:var(--ink);margin:0;letter-spacing:-.03em}
+h2{font-size:44px;font-weight:700;line-height:1.08;margin-bottom:26px}
+h3{font-size:24px;font-weight:600;letter-spacing:-.015em;line-height:1.2}
+p{margin:0;font-size:20px;line-height:1.55}
+b{color:var(--ink);font-weight:600}
+.c{color:var(--coral)}
+code{font-family:var(--mono);font-size:.86em;color:var(--mint);background:rgba(111,211,199,.08);border-radius:5px;padding:1px 6px}
+
+[data-f]{opacity:0;transform:translateY(14px);transition:opacity .5s ease,transform .5s ease}
+[data-f].in{opacity:1;transform:none}
+svg [data-f]{transform:none}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:8px}
+.card p{font-size:17px;line-height:1.5;color:var(--body)}
+.card .tag{font-family:var(--mono);font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.card.hot{background:var(--coral-t);border-color:var(--coral)}
+.card.hot .tag{color:var(--coral)}
+.statement{margin-top:auto;border-left:3px solid var(--coral);padding-left:20px;font-size:20px;color:var(--ink);line-height:1.45}
+.foot{position:absolute;left:80px;right:80px;bottom:30px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;color:#5D626A}
+
+.fig{width:100%;display:block}
+.fig .ln{fill:none;stroke:var(--line2);stroke-width:2}
+.fig .flow{fill:none;stroke:var(--coral);stroke-width:2.5;stroke-dasharray:8 10;animation:flow 1.4s linear infinite}
+@keyframes flow{to{stroke-dashoffset:-36}}
+.fig .node{fill:var(--panel);stroke:var(--line2);stroke-width:1.5}
+.fig .node.hot{fill:var(--coral-t);stroke:var(--coral);stroke-width:2}
+.fig .t{font-family:var(--disp);font-size:18px;font-weight:600;fill:var(--ink)}
+.fig .s{font-family:var(--mono);font-size:12px;fill:var(--muted)}
+.fig .m{font-family:var(--mono);font-size:12px;fill:var(--coral);letter-spacing:.06em}
+.fig .ok{fill:#5FB95A}
+.fig .v{fill:#2A2D31;stroke:var(--line2)}
+.fig .vt{font-family:var(--mono);font-size:12px;fill:var(--body)}
+
+.layout{display:flex;gap:40px;align-items:flex-start}
+.layout .left{width:420px;flex:none}
+.layout .right{flex:1;display:flex;flex-direction:column;gap:14px}
+.uri{font-family:var(--mono);font-size:14px;color:var(--muted);background:#0B0C0E;border:1px solid var(--line);border-radius:8px;padding:6px 10px;word-break:break-all}
+.uri.ok{color:var(--ink);border-color:var(--coral)}
+.btn{display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-size:15px;color:var(--ink);background:#2A2D31;border:1px solid var(--line2);border-radius:8px;padding:5px 12px;width:max-content}
+.btn::before{content:"+";color:var(--coral);font-weight:600;font-size:18px;line-height:1}
+.form{display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:16px}
+.form span{font-family:var(--mono);font-size:13px;color:var(--muted);letter-spacing:.04em;align-self:center}
+.form b{font-family:var(--mono);font-weight:500;font-size:15px}
+
+/* asistente "Register model from a job output" */
+.wiz{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.wiz .bar{grid-column:1/-1}
+.wiz-steps{width:230px;flex:none;padding:22px 20px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:20px}
+.wiz-steps div{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--muted)}
+.wiz-steps i{font-style:normal;font-family:var(--mono);font-size:12px;width:24px;height:24px;border-radius:999px;border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;flex:none}
+.wiz-steps .done i{background:#5FB95A;border-color:#5FB95A;color:#141517}
+.wiz-steps .done{color:var(--body)}
+.wiz-steps .now{color:var(--ink);font-weight:600}
+.wiz-steps .now i{background:var(--coral);border-color:var(--coral);color:#141517}
+.wiz-body{flex:1;min-width:0;padding:22px 26px;display:flex;flex-direction:column;gap:12px}
+.wiz-body h3{font-size:22px}
+.wiz-body .hint{font-size:15px;color:var(--muted)}
+.ok-note{display:flex;gap:10px;align-items:flex-start;background:rgba(95,185,90,.12);border:1px solid rgba(95,185,90,.45);border-radius:8px;padding:9px 12px;font-size:14.5px;line-height:1.4;color:var(--body)}
+.ok-note::before{content:"✓";color:#5FB95A;font-weight:700}
+.fld{display:flex;flex-direction:column;gap:5px}
+.fld label{font-size:14px;color:var(--ink);font-weight:600}
+.fld label::after{content:" *";color:var(--rose)}
+.fld div{font-family:var(--mono);font-size:14px;color:var(--ink);background:#0B0C0E;border:1px solid var(--line2);border-radius:6px;padding:8px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fld div.sel::after{content:"  ▾";color:var(--muted)}
+.wiz-foot{display:flex;gap:10px;margin-top:4px}
+.wiz-foot span{font-size:14px;border:1px solid var(--line2);border-radius:6px;padding:6px 18px;color:var(--body)}
+.wiz-foot span.pri{background:#2F6FD6;border-color:#2F6FD6;color:#fff;font-weight:600}
+.side{display:flex;flex-direction:column;gap:14px}
+.mark{outline:2px solid var(--coral);outline-offset:3px;border-radius:6px}
+.fld.opt label::after{content:""}
+.fld div.area{white-space:normal;font-family:var(--sans);font-size:13.5px;line-height:1.4;color:var(--body)}
+.fld div.empty{color:transparent}
+.fld small{font-size:12px;color:var(--muted)}
+.fld div.chips{display:flex;gap:8px;flex-wrap:wrap;background:none;border:0;padding:2px 0;font-family:var(--sans);overflow:visible}
+.chips span{font-size:13px;white-space:nowrap;color:var(--ink);background:#2A2D31;border:1px solid var(--line2);border-radius:6px;padding:4px 10px}
+.chips span::after{content:"  ✕";color:var(--muted)}
+/* Review */
+.rev{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.rev-col{display:flex;flex-direction:column;gap:14px}
+.rev-box{background:#191B1E;border:1px solid var(--line);border-radius:10px;padding:12px 16px;display:flex;flex-direction:column;gap:3px}
+.rev-box h4{margin:0 0 4px;font-family:var(--sans);font-size:16px;font-weight:600;color:var(--ink);display:flex;justify-content:space-between}
+.rev-box h4::after{content:"✎";color:var(--muted);font-weight:400}
+.rev-box small{font-size:12px;color:var(--muted)}
+.rev-box span{font-size:14px;color:var(--ink);font-family:var(--mono)}
+.rev-box span.txt{font-family:var(--sans);color:var(--body);line-height:1.4}
+.rev-box .chips span{font-family:var(--sans)}
+.rev-box .chips span::after{content:""}
+.rev-box.mark{outline-offset:2px}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.notes .card{padding:12px 18px;gap:4px}
+.notes .card p{font-size:15.5px}
+/* Model List */
+.mlist{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 22px}
+.mlist .tools{display:flex;gap:22px;font-size:14.5px;color:var(--body);padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:6px}
+.mlist .tools .off{color:#5D626A}
+.mlist table{font-size:15px;width:100%;border-collapse:collapse}
+.mlist th,.mlist td{text-align:left}
+.mlist th{font-family:var(--sans);font-size:14px;letter-spacing:0;text-transform:none;color:var(--ink);font-weight:600;padding:8px 12px}
+.mlist td{padding:12px;font-size:15px;color:var(--ink);font-family:var(--sans);border-top:1px solid var(--line)}
+.mlist td:first-child{font-family:var(--sans);font-size:15px;font-weight:500;width:auto}
+.mlist a{color:#6CA8F0;text-decoration:none}
+.menu{position:absolute;left:0;top:34px;width:340px;background:#26292D;border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.5);z-index:5;padding:6px;display:flex;flex-direction:column;gap:2px}
+.menu div{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:6px}
+.menu b{font-size:15px}
+.menu small{font-size:12.5px;color:var(--body);line-height:1.35}
+.menu div.mark{background:var(--coral-t);outline:2px solid var(--coral);outline-offset:-2px}
+.mlist td.mark,.mlist th.mark{outline:2px solid var(--coral);outline-offset:-3px;border-radius:6px}
+
+/* capturas reales con recuadros rojos */
+.shotrow{display:flex;gap:24px;align-items:flex-start}
+.shot{position:relative;width:820px;flex:none;border:1px solid var(--line2);border-radius:10px;overflow:hidden;background:#000}
+.shot img{display:block;width:100%}
+.box{position:absolute;border:3px solid #FF3B30;border-radius:6px;box-shadow:0 0 0 4px rgba(255,59,48,.22),0 0 18px rgba(255,59,48,.35)}
+.shotrow .side{flex:1;display:flex;flex-direction:column;gap:12px}
+.shotrow .card{padding:14px 18px;gap:5px}
+.shotrow .card p{font-size:15.5px;line-height:1.45}
+.num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:999px;background:#FF3B30;color:#fff;font-family:var(--mono);font-size:12px;font-weight:600;margin-right:6px}
+.box .num{position:absolute;top:-13px;left:-13px;margin:0}
+.slide.part{justify-content:center}
+.slide.part h2{font-size:64px;max-width:18ch}
+.slide.part p.lead{font-size:22px;color:var(--body);max-width:52ch}
+
+.hud{position:fixed;right:18px;bottom:14px;display:flex;align-items:center;gap:8px;z-index:10;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.hud button{background:rgba(29,31,34,.9);border:1px solid var(--line2);color:var(--body);border-radius:7px;width:34px;height:30px;cursor:pointer;font-size:13px}
+.hud button:hover{border-color:var(--coral);color:var(--coral)}
+.progress{position:fixed;left:0;top:0;height:3px;background:var(--coral);width:0;transition:width .3s;z-index:10}
+</style>
+</head>
+<body>
+<div class="progress"></div>
+<div class="deck" id="deck">
+
+<!-- Registrar el modelo del pipeline Custom -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 4 · Registrar el modelo</p>
+  <h2>El pipeline terminó. Ahora el modelo <span class="c">necesita un nombre.</span></h2>
+
+  <div class="layout">
+    <div class="left">
+      <svg class="fig" viewBox="0 0 420 372" role="img" aria-label="Pipeline completado: plan-de-salud-mltable, Dividir Datos, Entrenar Regresor versión 3, Puntuar Modelo y Evaluar Modelo, con la salida modelo de Entrenar resaltada">
+        <!-- cables -->
+        <path class="ln" d="M190 52 V74"/>
+        <path class="ln" d="M150 126 V148"/>
+        <path class="ln" d="M150 200 V222"/>
+        <path class="ln" d="M150 274 V296"/>
+        <path class="ln" d="M360 126 V222"/>
+        <text class="s" x="368" y="178">prueba</text>
+        <!-- salida modelo -->
+        <path class="flow" d="M150 200 V222" data-f="1"/>
+        <text class="m" x="160" y="216" data-f="1">modelo</text>
+
+        <!-- nodos -->
+        <rect class="node" x="20" y="0" width="380" height="52" rx="10"/>
+        <text class="t" x="40" y="24">plan-de-salud-mltable</text>
+        <text class="s" x="40" y="42">data asset · MLTable v2</text>
+
+        <rect class="node" x="20" y="74" width="380" height="52" rx="10"/>
+        <circle class="ok" cx="40" cy="100" r="7"/>
+        <text class="t" x="56" y="98">Dividir Datos</text>
+        <text class="s" x="56" y="116">dividir_datos</text>
+        <rect class="v" x="350" y="88" width="34" height="22" rx="5"/><text class="vt" x="358" y="104">v1</text>
+
+        <rect class="node hot" x="20" y="148" width="290" height="52" rx="10"/>
+        <circle class="ok" cx="40" cy="174" r="7"/>
+        <text class="t" x="56" y="172">Entrenar Regresor</text>
+        <text class="s" x="56" y="190">preproc. + GradientBoosting</text>
+        <rect class="v" x="264" y="162" width="34" height="22" rx="5" style="stroke:var(--coral)"/><text class="vt" x="272" y="178" style="fill:var(--coral)">v3</text>
+
+        <rect class="node" x="20" y="222" width="380" height="52" rx="10"/>
+        <circle class="ok" cx="40" cy="248" r="7"/>
+        <text class="t" x="56" y="246">Puntuar Modelo</text>
+        <text class="s" x="56" y="264">puntuar_modelo</text>
+        <rect class="v" x="350" y="236" width="34" height="22" rx="5"/><text class="vt" x="358" y="252">v1</text>
+
+        <rect class="node" x="20" y="296" width="380" height="52" rx="10"/>
+        <circle class="ok" cx="40" cy="322" r="7"/>
+        <text class="t" x="56" y="320">Evaluar Modelo</text>
+        <text class="s" x="56" y="338">R² ≈ 0.86 · MAE ≈ 2,490</text>
+        <rect class="v" x="350" y="310" width="34" height="22" rx="5"/><text class="vt" x="358" y="326">v1</text>
+
+        <text class="s" x="20" y="368">Job: …-CUSTOM-v2 · Completed · cluster-plan-de-salud</text>
+      </svg>
+    </div>
+
+    <div class="right">
+      <div class="card" data-f="1">
+        <span class="tag">Lo que Azure hace solo</span>
+        <p>Cada salida <code>mlflow_model</code> se guarda como modelo <b>anónimo</b>: nombre autogenerado, no aparece en tu lista de <b>Models</b>.</p>
+        <div class="uri">azureml_d3ff441b-…-a3b997547d94_output_modelo:1</div>
+      </div>
+      <div class="card hot" data-f="2">
+        <span class="tag">Lo que haces tú · doble click en Entrenar</span>
+        <span class="btn">Register model</span>
+        <div class="form">
+          <span>Model type</span><b>MLflow</b>
+          <span>Job output</span><b>modelo</b>
+          <span>Name</span><b class="c">modelo-seguros</b>
+          <span>Version</span><b>1 (automática)</b>
+        </div>
+        <div class="uri ok">azureml:modelo-seguros:1</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="statement" data-f="3"><b>Deploy</b> de la barra superior despliega el <b>pipeline</b> (batch, reentrena). Para predecir en tiempo real: <span class="c">Register model → Models → Use this model → Real-time endpoint</span>.</p>
+</section>
+
+<!-- Asistente: Register model from a job output · Select output -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 4 · Register model from a job output</p>
+  <h2>Azure ya encontró tu modelo. <span class="c">Solo confírmalo.</span></h2>
+
+  <div class="layout" style="gap:32px">
+    <div class="wiz" style="width:700px;flex:none">
+      <div class="wiz-steps">
+        <div class="done"><i>✓</i>Select job</div>
+        <div class="now"><i>2</i>Select output</div>
+        <div><i>3</i>Model settings</div>
+        <div><i>4</i>Review</div>
+      </div>
+      <div class="wiz-body">
+        <h3>Select output</h3>
+        <p class="hint">Specify the corresponding output to register the model.</p>
+        <div class="ok-note" data-f="1">A named model output has been detected in the job outputs and auto-selected.</div>
+        <div class="fld" data-f="2"><label>Model type</label><div class="sel mark">MLflow</div></div>
+        <div class="fld" data-f="2"><label>Job output</label><div class="mark">modelo (azureml_d3ff441b-…_output_modelo:1)</div></div>
+        <div class="wiz-foot"><span>Back</span><span class="pri">Next</span></div>
+      </div>
+    </div>
+
+    <div class="side" style="flex:1">
+      <div class="card" data-f="1">
+        <span class="tag">¿Por qué lo detecta solo?</span>
+        <p>Nuestro componente declara la salida <code>modelo</code> como tipo <code>mlflow_model</code>. Azure la reconoce como modelo.</p>
+      </div>
+      <div class="card hot" data-f="2">
+        <span class="tag">¿Por qué MLflow?</span>
+        <p>El modelo viaja con su <b>entorno</b> y su <b>firma</b> de entrada. Se despliega <b>sin score.py</b>.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="statement" data-f="3">Deja todo como está y dale <b>Next</b>. En <b>Model settings</b> ponle nombre: <span class="c">modelo-seguros</span>.</p>
+</section>
+
+<!-- Asistente: Model settings -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 4 · Model settings</p>
+  <h2>Nombre, descripción y tags: <span class="c">la ficha del modelo.</span></h2>
+
+  <div class="layout" style="gap:32px">
+    <div class="wiz" style="width:700px;flex:none">
+      <div class="wiz-steps">
+        <div class="done"><i>✓</i>Select job</div>
+        <div class="done"><i>✓</i>Select output</div>
+        <div class="now"><i>3</i>Model settings</div>
+        <div><i>4</i>Review</div>
+      </div>
+      <div class="wiz-body" style="gap:6px;padding:14px 26px">
+        <div class="fld"><label>Name</label><div class="mark" data-f="1">modelo-seguros</div></div>
+        <div class="fld opt"><label>Description</label><div class="area">GradientBoosting con preprocesamiento incluido (one-hot + zscore). Entrena con insurance.csv y predice charges. Recibe datos crudos.</div></div>
+        <div class="fld opt"><label>Version</label><div class="empty" data-f="2">·</div><small>Next available version for this model name : 1</small></div>
+        <div class="fld opt"><label>Tags</label>
+          <div class="chips" data-f="3"><span>framework : sklearn</span><span>pipeline : designer-custom</span><span>r2 : 0.86</span></div>
+        </div>
+        <div class="wiz-foot"><span>Back</span><span class="pri">Next</span></div>
+      </div>
+    </div>
+
+    <div class="side" style="flex:1">
+      <div class="card hot" data-f="1">
+        <span class="tag">Name</span>
+        <p>Es su identidad. Desde ahora es <code>azureml:modelo-seguros:1</code>.</p>
+      </div>
+      <div class="card" data-f="2">
+        <span class="tag">Version · vacío</span>
+        <p>Azure numera solo: hoy <b>1</b>; el próximo registro con el mismo nombre será <b>2</b>.</p>
+      </div>
+      <div class="card" data-f="3">
+        <span class="tag">Tags · opcional</span>
+        <p>Pares clave : valor para <b>filtrar y comparar</b> versiones en Models.</p>
+      </div>
+    </div>
+  </div>
+
+  <p class="statement" data-f="4"><b>Next</b> → en <b>Review</b> revisa el resumen → <span class="c">Register</span>.</p>
+</section>
+
+<!-- Asistente: Review -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 4 · Review</p>
+  <h2>Revisa el resumen y <span class="c">registra.</span></h2>
+
+  <div class="wiz">
+    <div class="wiz-steps" style="width:210px">
+      <div class="done"><i>✓</i>Select job</div>
+      <div class="done"><i>✓</i>Select output</div>
+      <div class="done"><i>✓</i>Model settings</div>
+      <div class="now"><i>4</i>Review</div>
+    </div>
+    <div class="wiz-body" style="gap:10px;padding:16px 22px">
+      <div class="rev">
+        <div class="rev-col">
+          <div class="rev-box"><h4>Select job</h4><small>Job</small><span>entrenar_regresor_boosted_trees_</span></div>
+          <div class="rev-box" data-mark="1"><h4>Select output</h4><small>Model type</small><span>MLflow</span><small>Named model output</small><span>modelo (azureml_d3ff441b-…_output_modelo:1)</span></div>
+        </div>
+        <div class="rev-box" data-mark="2"><h4>Model settings</h4>
+          <small>Name</small><span>modelo-seguros</span>
+          <small>Description</small><span class="txt">GradientBoosting con preprocesamiento incluido (one-hot + zscore). Entrena con insurance.csv y predice charges. Recibe datos crudos.</span>
+          <small>Version</small><span>--</span>
+          <small>Tags</small><div class="chips"><span>framework : sklearn</span><span>pipeline : designer-custom</span><span>r2 : 0.86</span></div>
+        </div>
+      </div>
+      <div class="wiz-foot" style="margin-top:0"><span>Back</span><span class="pri">Register</span></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div class="card" data-f="1"><span class="tag">Named model output</span><p>No copia nada: le pone <b>nombre</b> al mismo modelo que ya guardó el job.</p></div>
+    <div class="card" data-f="2"><span class="tag">Version: --</span><p>Vacío significa automática: quedará como <b>versión 1</b>.</p></div>
+  </div>
+
+  <p class="statement" data-f="3"><span class="c">Register</span> → aparece en <b>Models</b> como <code>modelo-seguros:1</code>. Siguiente: <b>Use this model → Real-time endpoint</b>.</p>
+</section>
+
+<!-- Models: modelo registrado -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 4 · Models</p>
+  <h2>Modelo registrado: <span class="c">versionado y trazable.</span></h2>
+
+  <div class="mlist">
+    <div class="tools"><span>+ Register ▾</span><span>⟳ Refresh</span><span class="off">Delete</span><span class="off">Archive</span><span class="off">Use this model</span><span>Compare ▾</span></div>
+    <table>
+      <tr><th>Name</th><th>Version</th><th data-mark="1">Type</th><th>Source</th><th data-mark="2">Experiment</th><th data-mark="2">Job (Run ID)</th><th>Created on</th></tr>
+      <tr><td><a>modelo-seguros</a></td><td>1</td><td data-mark="1">MLFLOW</td><td>This workspace</td><td data-mark="2">experimento-entrenamiento-p…</td><td data-mark="2"><a>d3ff441b-4103-…</a></td><td>Nov 12, 2026 5:04 PM</td></tr>
+    </table>
+  </div>
+
+  <div class="notes" style="margin-top:18px">
+    <div class="card" data-f="1"><span class="tag">Type · MLFLOW</span><p>Azure sabe cómo cargarlo y servirlo: despliegue <b>sin código</b>.</p></div>
+    <div class="card" data-f="2"><span class="tag">Experiment + Job</span><p><b>Linaje</b>: desde el modelo llegas al job, los datos y los parámetros que lo crearon.</p></div>
+  </div>
+
+  <p class="statement" data-f="3">Siguiente: click en <span class="c">modelo-seguros</span> → <b>Use this model</b> → <b>Real-time endpoint</b>.</p>
+</section>
+
+<!-- Detalle del modelo: Use this model -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 5 · Desplegar</p>
+  <h2>El botón de desplegar se llama <span class="c">Use this model.</span></h2>
+
+  <div class="mlist" style="padding:14px 22px">
+    <div style="display:flex;align-items:baseline;gap:22px;margin-bottom:10px">
+      <h3 style="font-size:24px">modelo-seguros:1</h3>
+      <span style="font-size:14px;color:var(--ink);border-bottom:2px solid #6CA8F0;padding-bottom:3px">Details</span>
+      <span style="font-size:14px;color:var(--body)">Versions</span><span style="font-size:14px;color:var(--body)">Artifacts</span><span style="font-size:14px;color:var(--body)">Endpoints</span><span style="font-size:14px;color:var(--body)">Jobs</span>
+    </div>
+    <div class="tools" style="align-items:center"><span>⟳ Refresh</span><span>Archive</span><span style="position:relative"><span class="mark" style="padding:3px 8px">▷ Use this model ▾</span>
+      <div class="menu" data-f="1">
+        <div data-mark="1"><b>Real-time endpoint</b><small>Deploy the model using the real-time endpoint wizard</small></div>
+        <div data-mark="2"><b>Batch endpoint</b><small>Deploy the model using the batch endpoint wizard</small></div>
+        <div data-mark="3"><b>Web service</b><small>Deploy to a web service (only for models based on frameworks)</small></div>
+      </div></span><span>Share model</span></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr;gap:18px;margin-top:10px">
+      <div class="rev-box" style="gap:2px">
+        <small>Name</small><span>modelo-seguros</span>
+        <small>Version</small><span>1</span>
+        <small>Type</small><span>MLFLOW</span>
+        <small>Created by job</small><span style="color:#6CA8F0">d3ff441b-4103-4eb1-9000-a3b997547d94</span>
+        <small>Asset ID</small><span style="font-size:12.5px">azureml://locations/brazilsouth/workspaces/…/models/modelo-seguros/versions/1</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="rev-box"><small>Tags</small><div class="chips"><span>framework : sklearn</span><span>pipeline : designer-custom</span><span>r2 : 0.86</span></div></div>
+        <div class="rev-box"><small>Description</small><span class="txt">GradientBoosting con preprocesamiento incluido (one-hot + zscore). Entrena con insurance.csv y predice charges. Recibe datos crudos.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes" style="margin-top:14px;grid-template-columns:repeat(3,1fr)">
+    <div class="card hot" data-f="1"><span class="tag">Real-time endpoint ✓</span><p>API REST que responde al instante. <b>Cobra por hora</b> mientras esté prendido.</p></div>
+    <div class="card" data-f="2"><span class="tag">Batch endpoint</span><p>Puntúa <b>archivos completos</b> en lote; corre como job en un cluster.</p></div>
+    <div class="card" data-f="3"><span class="tag">Web service</span><p>Despliegue <b>legado</b> (SDK v1). No usarlo en proyectos nuevos.</p></div>
+  </div>
+</section>
+
+<!-- Deploy modelo-seguros:1 (panel) -->
+<section class="slide">
+  <p class="eyebrow">Designer Custom · Paso 5 · Real-time endpoint</p>
+  <h2>Sin score.py ni entorno: <span class="c">MLflow los genera.</span></h2>
+
+  <div class="layout" style="gap:32px">
+    <div class="wiz" style="width:560px;flex:none">
+      <div class="wiz-body" style="gap:7px;padding:16px 22px">
+        <h3 style="font-size:20px">Deploy modelo-seguros:1</h3>
+        <div class="ok-note" data-f="1" style="background:rgba(108,168,240,.1);border-color:rgba(108,168,240,.4)">For the selected model, the scoring script and environment are auto generated for you.</div>
+        <div class="fld"><label>Instance count</label><div data-mark="2">1</div></div>
+        <div class="fld"><label>Virtual machine</label><div class="sel" data-mark="3">Standard_D2as_v4 · 2 Cores, 8 GB · $0.15/hr</div></div>
+        <div class="fld"><label>Endpoint (New) · name</label><div data-mark="4">endpoint-datapath-mlops18-kaic</div><small>https://endpoint-datapath-mlops18-kaic.brazilsouth.inference.ml.azure.com/score</small></div>
+        <div class="fld"><label>Deployment name</label><div>modelo-seguros-1</div></div>
+        <div class="wiz-foot"><span class="pri">Deploy</span><span>Cancel</span></div>
+      </div>
+    </div>
+
+    <div class="side" style="flex:1">
+      <div class="card hot" data-f="1"><span class="tag">MLflow = no-code deployment</span><p>Azure arma el <b>score.py</b> y el <b>entorno</b> desde el modelo. Por eso el preprocesamiento va dentro del modelo.</p></div>
+      <div class="card" data-f="2"><span class="tag">Instance count: 1</span><p>Producción: 3 (alta disponibilidad). Clase: 1, cuesta un tercio.</p></div>
+      <div class="card" data-f="4"><span class="tag">Endpoint vs deployment</span><p>El <b>endpoint</b> es la URL fija. El <b>deployment</b> es la versión que corre detrás; puedes tener varios y repartir tráfico.</p></div>
+      <p class="statement" data-f="5" style="margin-top:4px;font-size:18px"><span class="c">Deploy</span> → 8–15 min. Cobra <b>$0.15/h</b> mientras exista: bórralo al terminar.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== Parte 2: Automated ML ===== -->
+<section class="slide part">
+  <p class="eyebrow">Parte 2 · Automated ML</p>
+  <h2>El mejor modelo que encontró <span class="c">Automated ML.</span></h2>
+  <p class="lead">Mismo dataset, otro camino: AutoML probó cientos de algoritmos durante 6 horas. Lo registramos igual que <code>modelo-seguros</code> para desplegarlo y consumirlo.</p>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 1/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Abre tu job en <span class="c">Automated ML.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-01.png" alt="Automated ML · Registrar el mejor modelo · 1/7"><div class="box" data-f="1" style="left:15.6%;top:35.9%;width:11.2%;height:4.8%"><span class="num">1</span></div><div class="box" data-f="2" style="left:57.7%;top:36.3%;width:5.6%;height:4.0%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card hot" data-f="1"><span class="tag"><span class="num">1</span>El job</span><p><b>job-auto-ml-plan-de-salud</b> · regresión sobre <code>charges</code> con <b>plan-de-salud</b>.</p></div><div class="card" data-f="2"><span class="tag"><span class="num">2</span>Duración</span><p>6h 9m: se detuvo por el <b>timeout de 6 horas</b>, no porque terminara de probar todo.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 2/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">El resumen ya te dice <span class="c">quién ganó.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-02.png" alt="Automated ML · Registrar el mejor modelo · 2/7"><div class="box" data-f="1" style="left:14.4%;top:39.6%;width:20.4%;height:6.2%"><span class="num">1</span></div><div class="box" data-f="2" style="left:57.5%;top:67.6%;width:7.6%;height:3.6%"><span class="num">2</span></div><div class="box" data-f="3" style="left:57.5%;top:77.0%;width:13.9%;height:4.8%"><span class="num">3</span></div></div>
+    <div class="side"><div class="card" data-f="1"><span class="tag"><span class="num">1</span>Warning</span><p><i>Experiment timeout reached</i>: es normal, el tope de tiempo lo pusimos nosotros.</p></div><div class="card hot" data-f="2"><span class="tag"><span class="num">2</span>Best model · VotingEnsemble</span><p>Combina varios modelos y promedia sus predicciones. <b>Click aquí</b> para abrirlo.</p></div><div class="card" data-f="3"><span class="tag"><span class="num">3</span>NRMSE 0.07929</span><p>Error normalizado por el rango de <code>charges</code>: menos es mejor.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 3/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">En el modelo ganador: <span class="c">Register model.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-03.png" alt="Automated ML · Registrar el mejor modelo · 3/7"><div class="box" data-f="2" style="left:20.9%;top:21.9%;width:5.6%;height:4.1%"><span class="num">2</span></div><div class="box" data-f="1" style="left:63.6%;top:21.9%;width:7.9%;height:4.1%"><span class="num">1</span></div></div>
+    <div class="side"><div class="card hot" data-f="1"><span class="tag"><span class="num">1</span>Register model</span><p>Mismo asistente que usamos con <code>modelo-seguros</code>.</p></div><div class="card" data-f="2"><span class="tag"><span class="num">2</span>¿Y Deploy?</span><p>También se puede desplegar directo, pero registrar primero le da <b>nombre y versión</b>.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 4/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Select output: <span class="c">MLflow, detectado solo.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-04.png" alt="Automated ML · Registrar el mejor modelo · 4/7"><div class="box" data-f="1" style="left:24.2%;top:27.4%;width:32.5%;height:15.8%"><span class="num">1</span></div><div class="box" data-f="2" style="left:30.8%;top:95.0%;width:5.9%;height:4.1%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card hot" data-f="1"><span class="tag"><span class="num">1</span>Model type · Job output</span><p>AutoML guarda el modelo como MLflow (<code>mlflow_log_model_…</code>). No cambies nada.</p></div><div class="card" data-f="2"><span class="tag"><span class="num">2</span>Next</span><p>Pasa a ponerle nombre.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 5/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Model settings: <span class="c">ponle nombre.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-05.png" alt="Automated ML · Registrar el mejor modelo · 5/7"><div class="box" data-f="1" style="left:24.2%;top:20.4%;width:32.5%;height:6.6%"><span class="num">1</span></div><div class="box" data-f="2" style="left:30.8%;top:94.8%;width:5.9%;height:4.1%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card hot" data-f="1"><span class="tag"><span class="num">1</span>Name</span><p><code>modelo-voting-ensemble</code>. Version vacía → <b>1</b>.</p></div><div class="card" data-f="2"><span class="tag"><span class="num">2</span>Next</span><p>Descripción y tags son opcionales (aquí quedaron vacíos).</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 6/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Review: <span class="c">Register.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-06.png" alt="Automated ML · Registrar el mejor modelo · 6/7"><div class="box" data-f="1" style="left:24.7%;top:48.4%;width:23.4%;height:6.6%"><span class="num">1</span></div><div class="box" data-f="2" style="left:30.8%;top:94.8%;width:6.0%;height:4.2%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card" data-f="1"><span class="tag"><span class="num">1</span>Named model output</span><p>Apunta al modelo que AutoML ya guardó (job <code>…_272</code>). No se reentrena nada.</p></div><div class="card hot" data-f="2"><span class="tag"><span class="num">2</span>Register</span><p>Listo en segundos.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Registrar el mejor modelo · 7/7</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Dos modelos registrados, <span class="c">dos caminos.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-07.png" alt="Automated ML · Registrar el mejor modelo · 7/7"><div class="box" data-f="1" style="left:14.4%;top:29.2%;width:85.2%;height:4.6%"><span class="num">1</span></div><div class="box" data-f="2" style="left:14.4%;top:34.0%;width:85.2%;height:4.6%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card hot" data-f="1"><span class="tag"><span class="num">1</span>modelo-voting-ensemble</span><p>Hecho por <b>Automated ML</b> (exp-job-auto-ml-plan-de-salud).</p></div><div class="card" data-f="2"><span class="tag"><span class="num">2</span>modelo-seguros</span><p>Hecho por nuestro <b>pipeline Custom</b>. Ambos MLFLOW: se despliegan igual, sin <code>score.py</code>.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Desplegar el mejor modelo · 1/2</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Abre <span class="c">modelo-voting-ensemble</span> y despliégalo.</h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-08.png" alt="Automated ML · Desplegar el mejor modelo · 1/2"><div class="box" data-f="1" style="left:14.2%;top:61.3%;width:13.5%;height:4.4%"><span class="num">1</span></div><div class="box" data-f="2" style="left:26.6%;top:21.6%;width:8.2%;height:3.8%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card" data-f="1"><span class="tag"><span class="num">1</span>Created by job</span><p><code>job-auto-ml-plan-de-salud_272</code>: el linaje te lleva a la iteración ganadora.</p></div><div class="card hot" data-f="2"><span class="tag"><span class="num">2</span>Use this model ▾</span><p>El mismo botón que usamos con <code>modelo-seguros</code>.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Desplegar el mejor modelo · 2/2</p>
+  <h2 style="font-size:38px;margin-bottom:20px">¿Real-time o Batch? <span class="c">Depende de quién consume.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-09.png" alt="Automated ML · Desplegar el mejor modelo · 2/2"><div class="box" data-f="1" style="left:26.1%;top:25.8%;width:16.9%;height:8.3%"><span class="num">1</span></div><div class="box" data-f="2" style="left:26.1%;top:34.6%;width:16.9%;height:7.8%"><span class="num">2</span></div></div>
+    <div class="side"><div class="card hot" data-f="1"><span class="tag"><span class="num">1</span>Real-time endpoint ✓</span><p>Una app (Streamlit) pide <b>una predicción</b> y responde en ms. Cobra por hora prendido.</p></div><div class="card" data-f="2"><span class="tag"><span class="num">2</span>Batch endpoint</span><p>Puntúa un <b>archivo entero</b> como job en el cluster. Tarda minutos, pero no cobra cuando no se usa.</p></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="eyebrow">Automated ML · Desplegar el mejor modelo · Real-time endpoint</p>
+  <h2 style="font-size:38px;margin-bottom:20px">Mismo formulario, <span class="c">otro endpoint.</span></h2>
+  <div class="shotrow">
+    <div class="shot"><img src="img/automl/automl-10.png" alt="Deploy modelo-voting-ensemble:1"><div class="box" data-f="1" style="left:63.8%;top:27.4%;width:35.1%;height:13.3%"><span class="num">1</span></div><div class="box" data-f="2" style="left:63.8%;top:52.1%;width:35.1%;height:4.6%"><span class="num">2</span></div><div class="box" data-f="3" style="left:63.8%;top:94.7%;width:5.7%;height:4.5%"><span class="num">3</span></div></div>
+    <div class="side"><div class="card" data-f="1"><span class="tag"><span class="num">1</span>1 instancia · Standard_D2as_v4</span><p>Igual que el modelo Custom. Si falta memoria, sube a <code>Standard_D4as_v4</code>.</p></div><div class="card hot" data-f="2"><span class="tag"><span class="num">2</span>Endpoint nuevo</span><p><code>endpoint-modelo-voting-ensemble</code>: otra URL, otra key. Dos endpoints = ~$0.30/h.</p></div><div class="card" data-f="3"><span class="tag"><span class="num">3</span>Deploy</span><p>Scoring script y entorno autogenerados: el entorno de AutoML ya trae los paquetes <code>azureml-*</code>.</p></div></div>
+  </div>
+</section>
+</div>
+<div class="hud"><button type="button" id="prev" aria-label="Anterior">◀</button><span id="count"></span><button type="button" id="next" aria-label="Siguiente">▶</button></div>
+
+<script>
+(function () {
+  const deck = document.getElementById("deck");
+  const slides = [...deck.querySelectorAll(".slide")];
+  const count = document.getElementById("count");
+  const bar = document.querySelector(".progress");
+  // cada lámina avanza por pasos: los elementos con data-f="n" aparecen en el paso n
+  const steps = slides.map(s => Math.max(0, ...[...s.querySelectorAll("[data-f]")].map(e => +e.dataset.f)));
+  let cur = 0, step = 0;
+
+  function fit() {
+    const k = Math.min(innerWidth / 1280, innerHeight / 720);
+    deck.style.transform = `translate(-50%,-50%) scale(${k})`;
+  }
+  function render() {
+    slides.forEach((s, i) => s.classList.toggle("on", i === cur));
+    slides[cur].querySelectorAll("[data-f]").forEach(e => e.classList.toggle("in", +e.dataset.f <= step));
+    // data-mark="n": resalta el elemento solo en el paso n
+    slides[cur].querySelectorAll("[data-mark]").forEach(e => e.classList.toggle("mark", +e.dataset.mark === step));
+    const n = String(cur + 1).padStart(2, "0");
+    count.textContent = `${n} / ${slides.length}`;
+    bar.style.width = `${(cur + 1) / slides.length * 100}%`;
+  }
+  function go(i, s) { cur = Math.max(0, Math.min(slides.length - 1, i)); step = s; render(); }
+  function next() { step < steps[cur] ? (step++, render()) : cur < slides.length - 1 && go(cur + 1, 0); }
+  function prev() { step > 0 ? (step--, render()) : cur > 0 && go(cur - 1, steps[cur - 1]); }
+
+  addEventListener("keydown", e => {
+    if (["ArrowRight", "PageDown", " ", "Enter"].includes(e.key)) { e.preventDefault(); next(); }
+    else if (["ArrowLeft", "PageUp", "Backspace"].includes(e.key)) { e.preventDefault(); prev(); }
+    else if (e.key === "f" || e.key === "F") document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+  });
+  document.getElementById("next").addEventListener("click", next);
+  document.getElementById("prev").addEventListener("click", prev);
+  addEventListener("resize", fit);
+
+  slides.forEach(s => {
+    const f = document.createElement("div");
+    f.className = "foot";
+    f.innerHTML = "<span>Programa de MLOps · Sesión 5 · Azure ML Designer Custom</span>";
+    s.appendChild(f);
+  });
+
+  fit();
+  go(0, 0);
+})();
+</script>
+</body>
+</html>

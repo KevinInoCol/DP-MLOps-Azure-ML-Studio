@@ -1,0 +1,23 @@
+# Secretos — el .env contiene la API key del online endpoint
+.env
+.env.bak
+.env.*
+!.env.example
+
+# Config local de herramientas
+.claude/settings.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# Artefactos de inferencia
+deployment_files/
+salida/
+outputs/

@@ -1,0 +1,40 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+
+name: preprocesador_seguros
+display_name: Preprocesador de Seguros
+description: One-hot encoding (sex, smoker, region) y normalización (age, bmi, children) del dataset de seguros médicos.
+version: "4"
+tags:
+  curso: MLOps-Datapath
+
+inputs:
+  datos_entrada:
+    type: mltable
+    description: Dataset tabular de seguros MLTable v2 (insurance.csv)
+  metodo_normalizacion:
+    type: string
+    default: zscore
+    enum: [zscore, minmax]
+    description: Método de normalización
+
+outputs:
+  datos_salida:
+    type: mltable
+    description: Dataset preprocesado (CSV + MLTable)
+  reporte:
+    type: uri_folder
+    description: Carpeta con reporte.json
+
+code: ./src
+
+environment:
+  image: mcr.microsoft.com/azureml/openmpi4.1.0-ubuntu22.04:latest
+  conda_file: ./conda.yml
+
+command: >-
+  python preprocesar.py
+  --datos_entrada ${{inputs.datos_entrada}}
+  --metodo_normalizacion ${{inputs.metodo_normalizacion}}
+  --datos_salida ${{outputs.datos_salida}}
+  --reporte ${{outputs.reporte}}

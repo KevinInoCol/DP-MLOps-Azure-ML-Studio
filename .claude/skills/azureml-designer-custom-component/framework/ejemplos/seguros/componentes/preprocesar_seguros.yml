@@ -1,0 +1,27 @@
+$schema: https://azuremlschemas.azureedge.net/latest/commandComponent.schema.json
+type: command
+name: preprocesar_seguros
+display_name: Preprocesar Seguros
+description: One-hot (sex, smoker, region) y normalización (age, bmi, children). Equivale a Edit Metadata.
+version: "1"
+
+inputs:
+  datos:
+    type: mltable
+  metodo_normalizacion:
+    type: string
+    default: zscore
+    enum: [zscore, minmax]
+
+outputs:
+  datos_procesados:
+    type: mltable
+
+code: ../src
+environment: azureml:env-designer-custom@latest
+
+command: >-
+  python preprocesar_seguros.py
+  --datos ${{inputs.datos}}
+  --metodo_normalizacion ${{inputs.metodo_normalizacion}}
+  --datos_procesados ${{outputs.datos_procesados}}
